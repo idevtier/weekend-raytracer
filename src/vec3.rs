@@ -11,6 +11,36 @@ impl Vec3 {
         Self(vec![a, b, c])
     }
 
+    pub fn random() -> Self {
+        Self(vec![
+            crate::random_double(),
+            crate::random_double(),
+            crate::random_double(),
+        ])
+    }
+
+    pub fn random_in_range(min: &f64, max: &f64) -> Self {
+        Self(vec![
+            crate::random_double_in_range(min, max),
+            crate::random_double_in_range(min, max),
+            crate::random_double_in_range(min, max),
+        ])
+    }
+
+    pub fn random_in_unit_sphere() -> Self {
+        loop {
+            let p = Vec3::random_in_range(&-1.0, &1.0);
+            if p.len() >= 1.0 {
+                continue;
+            }
+            return p;
+        }
+    }
+
+    pub fn random_unit_vector() -> Self {
+        unit_vector(&Vec3::random_in_unit_sphere())
+    }
+
     #[inline]
     pub fn x(&self) -> f64 {
         self.0[0]
@@ -27,18 +57,13 @@ impl Vec3 {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        (self.length_squared() as f64).sqrt() as usize
+    pub fn len(&self) -> f64 {
+        self.len_squared().sqrt()
     }
 
     #[inline]
-    pub fn length_squared(&self) -> usize {
-        (self.0[0] * self.0[0] + self.0[1] * self.0[1] + self.0[2] * self.0[2]) as usize
-    }
-
-    #[inline]
-    pub fn dot(&self, rhs: &Self) -> f64 {
-        self.x() * rhs.x() + self.y() * rhs.y() + self.z() * rhs.z()
+    pub fn len_squared(&self) -> f64 {
+        self.0[0] * self.0[0] + self.0[1] * self.0[1] + self.0[2] * self.0[2]
     }
 
     #[inline]
@@ -49,11 +74,6 @@ impl Vec3 {
             self.x() * rhs.y() - self.y() * rhs.x(),
         )
     }
-
-    #[inline]
-    pub fn unit_vector(&self) -> Self {
-        self / self.len() as f64
-    }
 }
 
 impl Default for Vec3 {
@@ -61,6 +81,10 @@ impl Default for Vec3 {
         Self(vec![0.0; 3])
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Add
+////////////////////////////////////////////////////////////////////////////////
 
 impl ops::Add for Vec3 {
     type Output = Self;
@@ -94,6 +118,10 @@ impl ops::AddAssign for Vec3 {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Neg
+////////////////////////////////////////////////////////////////////////////////
+
 impl ops::Neg for Vec3 {
     type Output = Vec3;
 
@@ -101,6 +129,10 @@ impl ops::Neg for Vec3 {
         Self(vec![-self.x(), -self.y(), -self.z()])
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Sub
+////////////////////////////////////////////////////////////////////////////////
 
 impl ops::Sub for Vec3 {
     type Output = Vec3;
@@ -126,6 +158,10 @@ impl ops::Sub<&Vec3> for &Vec3 {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Mul
+////////////////////////////////////////////////////////////////////////////////
+
 impl ops::Mul for Vec3 {
     type Output = Vec3;
 
@@ -135,22 +171,6 @@ impl ops::Mul for Vec3 {
             self.y() * other.y(),
             self.z() * other.z(),
         )
-    }
-}
-
-impl ops::Mul<f64> for &Vec3 {
-    type Output = Vec3;
-
-    fn mul(self, other: f64) -> Self::Output {
-        Vec3::new(self.x() * other, self.y() * other, self.z() * other)
-    }
-}
-
-impl ops::Mul<&Vec3> for &f64 {
-    type Output = Vec3;
-
-    fn mul(self, other: &Vec3) -> Self::Output {
-        Vec3::new(other.x() * self, other.y() * self, other.z() * self)
     }
 }
 
@@ -174,6 +194,14 @@ impl ops::Mul<f64> for Vec3 {
     }
 }
 
+impl ops::Mul<&f64> for &Vec3 {
+    type Output = Vec3;
+
+    fn mul(self, other: &f64) -> Self::Output {
+        Vec3::new(self.x() * other, self.y() * other, self.z() * other)
+    }
+}
+
 impl ops::Mul<Vec3> for f64 {
     type Output = Vec3;
     fn mul(self, other: Vec3) -> Self::Output {
@@ -181,10 +209,11 @@ impl ops::Mul<Vec3> for f64 {
     }
 }
 
-impl ops::Mul<&Vec3> for f64 {
+impl ops::Mul<&Vec3> for &f64 {
     type Output = Vec3;
+
     fn mul(self, other: &Vec3) -> Self::Output {
-        other * self
+        Vec3::new(other.x() * self, other.y() * self, other.z() * self)
     }
 }
 
@@ -196,19 +225,23 @@ impl ops::MulAssign<f64> for Vec3 {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Div
+////////////////////////////////////////////////////////////////////////////////
+
 impl ops::Div<f64> for Vec3 {
     type Output = Vec3;
 
     fn div(self, other: f64) -> Self {
-        1.0 / other * self
+        (1.0 / other) * self
     }
 }
 
-impl ops::Div<f64> for &Vec3 {
+impl ops::Div<&f64> for &Vec3 {
     type Output = Vec3;
 
-    fn div(self, other: f64) -> Self::Output {
-        1.0 / other * self
+    fn div(self, other: &f64) -> Self::Output {
+        &(1.0 / other) * self
     }
 }
 
@@ -219,6 +252,10 @@ impl ops::DivAssign<f64> for Vec3 {
         self.0[2] *= 1.0 / rhs;
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Index
+////////////////////////////////////////////////////////////////////////////////
 
 impl ops::Index<usize> for Vec3 {
     type Output = f64;
@@ -234,15 +271,41 @@ impl ops::IndexMut<usize> for Vec3 {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Display
+////////////////////////////////////////////////////////////////////////////////
+
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let scale = 1.0 / 100.0;
+
         write!(
             f,
             "{} {} {}",
-            (255.99 * self.x()) as u8,
-            (255.99 * self.y()) as u8,
-            (255.99 * self.z()) as u8
+            (256.0 * clamp((self.x() * scale).sqrt(), 0.0, 0.999)) as u8,
+            (256.0 * clamp((self.y() * scale).sqrt(), 0.0, 0.999)) as u8,
+            (256.0 * clamp((self.z() * scale).sqrt(), 0.0, 0.999)) as u8
         )?;
         Ok(())
     }
+}
+
+fn clamp(x: f64, min: f64, max: f64) -> f64 {
+    if x < min {
+        min
+    } else if x > max {
+        max
+    } else {
+        x
+    }
+}
+
+#[inline]
+pub fn dot(lhs: &Vec3, rhs: &Vec3) -> f64 {
+    lhs.x() * rhs.x() + lhs.y() * rhs.y() + lhs.z() * rhs.z()
+}
+
+#[inline]
+pub fn unit_vector(v: &Vec3) -> Vec3 {
+    v / &v.len()
 }
